@@ -1,2 +1,6 @@
 /venv/
 /.idea/
+/ietool.egg-info/
+/data/
+/ddl/
+/dist/
