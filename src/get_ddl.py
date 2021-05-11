@@ -4,8 +4,7 @@ from pyhive import hive
 import re
 import os
 
-# database = 'ietool'
-database = 'dsep'
+database = 'ietool'
 conn = hive.Connection(host='172.30.1.233',
                        port=10000,
                        auth="CUSTOM",
@@ -32,9 +31,9 @@ try:
             new_string = ddl_string
         if not os.path.exists('ddl'):
             os.mkdir('ddl')
-        with open('ddl/' + table_name + '.ddl', 'w') as f:
-            f.write(new_string)
-            f.close()
+        # with open('ddl/' + table_name + '.ddl', 'w') as f:
+        #     f.write(new_string)
+        #     f.close()
 except Exception as e:
     print e
 finally:

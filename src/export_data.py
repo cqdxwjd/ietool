@@ -1,7 +1,6 @@
 # coding=utf-8
 
 from pyhive import hive
-import re
 import os
 import pandas
 
@@ -23,7 +22,7 @@ try:
         df = pandas.DataFrame(rows)
         if not os.path.exists('data'):
             os.mkdir('data')
-        df.to_csv('data/' + table_name + '.dat', sep=',', header=True, index=False)
+        # df.to_csv('data/' + table_name + '.dat', sep=',', header=True, index=False)
 except Exception as e:
     print e
 finally:
