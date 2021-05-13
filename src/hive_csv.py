@@ -44,7 +44,8 @@ def export_ddl():
                 os.mkdir('./ddl')
             with open('./ddl/' + table + '.ddl', 'w') as f:
                 f.write(new_string)
-            f.close()
+                f.close()
+            print 'exported ddl of table ' + table
     except Exception as e:
         print e
     finally:
@@ -94,18 +95,18 @@ def export_data():
                     else:
                         final_partition_str = new_latest_partition_split[0]
                     sql = 'select * from ' + table + ' where ' + final_partition_str + ' limit ' + max
-                    print sql
                     cursor.execute(sql)
                     rows = cursor.fetchall()
-                    print rows
                     df = pandas.DataFrame(rows)
                     df.to_csv(cur_path + '/' + table + '.dat', sep=',', header=False, index=False)
+                    print 'exported data of table ' + table
             else:
                 cursor.execute('select * from ' + table + ' limit ' + max)
                 rows = cursor.fetchall()
                 if len(rows) != 0:
                     df = pandas.DataFrame(rows)
                     df.to_csv(cur_path + '/' + table + '.dat', sep=',', header=False, index=False)
+                    print 'exported data of table ' + table
     except Exception as e:
         print e
     finally:
@@ -119,8 +120,13 @@ def import_ddl(path):
             with open(path + '/' + file, 'r') as f:
                 ddl = ''.join(f.readlines())
                 cursor.execute(ddl)
+                table_name = file[:len(file) - 4]
                 # 修改表字段分隔符为逗号
-                cursor.execute("alter table " + file[:len(file) - 4] + " set serdeproperties('field.delim'=',')")
+                cursor.execute("alter table " + table_name + " set serdeproperties('field.delim'=',')")
+                # 修改hive表inputformat和outputformat
+                cursor.execute(
+                    "alter table " + table_name + " set fileformat INPUTFORMAT 'org.apache.hadoop.mapred.TextInputFormat' OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat' SERDE 'org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe'")
+                print 'created table ' + table_name
     except Exception as e:
         print e
     finally:
@@ -128,22 +134,43 @@ def import_ddl(path):
         conn.close()
 
 
+# 递归得到文件路径
+def get_file_path(parent):
+    list = []
+    cur = os.path.abspath(parent)
+    listdir = os.listdir(parent)
+    for dir in listdir:
+        if os.path.isdir(cur + '/' + dir):
+            child = get_file_path(cur + '/' + dir)
+            list += child
+        else:
+            list.append(cur + '/' + dir)
+    return list
+
+
 def import_data2(in_path):
     try:
-        for file in os.listdir(in_path):
-            if os.path.isdir(in_path + '/' + file):
-                dirs = os.listdir(in_path + '/' + file)
-                for dir in dirs:
-                    for data_file in os.listdir(in_path + '/' + file + '/' + dir):
-                        cursor.execute(
-                            "load data local inpath '" + os.path.abspath(
-                                file) + '/' + dir + '/' + data_file + "' overwrite into table " + file + ' partitions(' + dir + ')')
+        cur_path = os.path.abspath(in_path)
+        for file in os.listdir(cur_path):
+            if os.path.isdir(cur_path + '/' + file):
+                partition_datas = get_file_path(cur_path + '/' + file)
+                for partition_data in partition_datas:
+                    splits = partition_data.split('/')
+                    partition_str = partition_data[len(cur_path + '/' + file) + 1:-len(splits[-1]) - 1]
+                    partition_str_split = partition_str.split('/')
+                    new_partitions = []
+                    for p in partition_str_split:
+                        new_partitions.append(format_partition(p))
+                    new_partition_str = ','.join(new_partitions)
+                    sql = "load data local inpath '" + partition_data + "' overwrite into table " + file + ' partition(' + new_partition_str + ')'
+                    cursor.execute(sql)
+                    print 'loaded data into table ' + file
             else:
                 table = file[:len(file) - 4]
-                print table
                 cursor.execute(
                     "load data local inpath '" + os.path.abspath(
                         in_path) + '/' + file + "' overwrite into table " + table)
+                print 'loaded data into table ' + table
     except Exception as e:
         print e
     finally:
