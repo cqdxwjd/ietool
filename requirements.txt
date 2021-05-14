@@ -7,5 +7,5 @@ python-dateutil==2.8.1
 pytz==2021.1
 sasl==0.2.1
 six==1.16.0
-thrift==0.13.0
+thrift==0.9.3
 thrift-sasl==0.4.2
