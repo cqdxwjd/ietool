@@ -34,9 +34,9 @@ def import_data():
 
 
 if __name__ == '__main__':
-    table = 'test3'
-    # partition = 'pdate="2021-05-12",chour="2021-05-12-12"'
-    partition = None
+    table = 'test2'
+    partition = 'pdate="2021-05-15",chour="2021-05-12-15"'
+    # partition = 'pdate="2021-05-15"'
     conn = hive.Connection(host='172.30.1.233',
                            port=10000,
                            auth="CUSTOM",
@@ -47,6 +47,6 @@ if __name__ == '__main__':
     with open('mock.dat', 'w') as f:
         f.write('0,1\n')
         for i in range(10):
-            f.write('111,aaa\n')
+            f.write('888,hhh\n')
         f.close()
     import_data()

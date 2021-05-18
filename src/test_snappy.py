@@ -1,5 +1,5 @@
 from unittest import TestCase
-import snappy.hadoop_snappy as snappy
+# import snappy.hadoop_snappy as snappy
 
 
 class SnappyCompressionTest(TestCase):
@@ -16,3 +16,7 @@ class SnappyCompressionTest(TestCase):
             output.write(compressed)
             input.close()
             output.close()
+
+    def test_arrays(self):
+        partitions = ['aaa','bbb','ccc','ddd']
+        print partitions[-6:]

@@ -10,7 +10,7 @@ import configparser
 
 def get_tables():
     try:
-        cursor.execute('show tables')
+        cursor.execute('show tables like "' + filter + '"')
         table_list = []
         for result in cursor.fetchall():
             table_list.append(result[0])
@@ -73,39 +73,43 @@ def export_data():
             is_partition = re.search('PARTITIONED BY', ddl_string, re.I)
             if not os.path.exists('data'):
                 os.mkdir('data')
-            cur_path = os.path.abspath('data')
+            root = os.path.abspath('data')
             # 最多导出max条数据,只导出有数据的表
             if is_partition is not None:
-                if not os.path.exists(cur_path + '/' + table):
-                    os.mkdir(cur_path + '/' + table)
-                cur_path = os.path.abspath(cur_path + '/' + table)
+                if not os.path.exists(root + '/' + table):
+                    os.mkdir(root + '/' + table)
+                table_path = os.path.abspath(root + '/' + table)
                 cursor.execute('show partitions ' + table)
                 partitions = cursor.fetchall()
                 if len(partitions) != 0:
-                    latest_partition = str(partitions[-1][0])
-                    latest_partition_split = latest_partition.split('/')
-                    new_latest_partition_split = []
-                    for s in latest_partition_split:
-                        if not os.path.exists(cur_path + '/' + s):
-                            os.mkdir(cur_path + '/' + s)
-                        cur_path = os.path.abspath(cur_path + '/' + s)
-                        new_latest_partition_split.append(format_partition(s))
-                    if len(new_latest_partition_split) > 1:
-                        final_partition_str = ' and '.join(new_latest_partition_split)
-                    else:
-                        final_partition_str = new_latest_partition_split[0]
-                    sql = 'select * from ' + table + ' where ' + final_partition_str + ' limit ' + max
-                    cursor.execute(sql)
-                    rows = cursor.fetchall()
-                    df = pandas.DataFrame(rows)
-                    df.to_csv(cur_path + '/' + table + '.dat', sep=',', header=False, index=False)
+                    # 最新的指定个数分区列表
+                    latest_partitions = partitions[-partition_count:]
+                    for cur_partition in latest_partitions:
+                        # 重置当前路径到表文件夹所在目录
+                        cur_path = table_path
+                        latest_partition_split = str(cur_partition[0]).split('/')
+                        new_latest_partition_split = []
+                        for s in latest_partition_split:
+                            if not os.path.exists(cur_path + '/' + s):
+                                os.mkdir(cur_path + '/' + s)
+                            cur_path = os.path.abspath(cur_path + '/' + s)
+                            new_latest_partition_split.append(format_partition(s))
+                        if len(new_latest_partition_split) > 1:
+                            final_partition_str = ' and '.join(new_latest_partition_split)
+                        else:
+                            final_partition_str = new_latest_partition_split[0]
+                        sql = 'select * from ' + table + ' where ' + final_partition_str + ' limit ' + max
+                        cursor.execute(sql)
+                        rows = cursor.fetchall()
+                        df = pandas.DataFrame(rows)
+                        df.to_csv(cur_path + '/' + table + '.dat', sep=',', header=False, index=False)
                     print 'exported data of table ' + table
             else:
                 cursor.execute('select * from ' + table + ' limit ' + max)
                 rows = cursor.fetchall()
                 if len(rows) != 0:
                     df = pandas.DataFrame(rows)
-                    df.to_csv(cur_path + '/' + table + '.dat', sep=',', header=False, index=False)
+                    df.to_csv(root + '/' + table + '.dat', sep=',', header=False, index=False)
                     print 'exported data of table ' + table
     except Exception as e:
         print e
@@ -150,13 +154,13 @@ def get_file_path(parent):
 
 def import_data2(in_path):
     try:
-        cur_path = os.path.abspath(in_path)
-        for file in os.listdir(cur_path):
-            if os.path.isdir(cur_path + '/' + file):
-                partition_datas = get_file_path(cur_path + '/' + file)
+        root = os.path.abspath(in_path)
+        for file in os.listdir(root):
+            if os.path.isdir(root + '/' + file):
+                partition_datas = get_file_path(root + '/' + file)
                 for partition_data in partition_datas:
                     splits = partition_data.split('/')
-                    partition_str = partition_data[len(cur_path + '/' + file) + 1:-len(splits[-1]) - 1]
+                    partition_str = partition_data[len(root + '/' + file) + 1:-len(splits[-1]) - 1]
                     partition_str_split = partition_str.split('/')
                     new_partitions = []
                     for p in partition_str_split:
@@ -188,6 +192,8 @@ if __name__ == '__main__':
     database = parser.get('hive', 'database')
     host = parser.get('hive', 'host')
     port = parser.get('hive', 'port')
+    partition_count = int(parser.get('hive', 'partitions'))
+    filter = parser.get('hive', 'filter')
     username = 'admin'
     password = 'admin'
 
